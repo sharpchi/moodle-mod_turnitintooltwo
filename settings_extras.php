@@ -372,6 +372,156 @@ switch ($cmd) {
 
         break;
 
+    case "migrationtool":
+        $jsrequired = true;
+
+        // Set up our progress bar.
+        $output = html_writer::tag('div',
+                    html_writer::tag('div',
+                        html_writer::tag('span', '0% Complete', array('class' => 'bar-complete'))
+                    , array('class' => 'bar', 'style' => 'width: 0%'))
+                  , array('id' => 'progress-bar', 'class' => 'progress progress-striped active hidden_class'));
+
+        $output .= $OUTPUT->box_start('migrationtool', 'migrationtool');
+
+        $module = $DB->get_record('config_plugins', array('plugin' => 'mod_turnitintool', 'name' => 'version'));
+        if ($module) {
+            if ($module->value >= 2012120401) {
+                if (!empty($CFG->maintenance_enabled)) {
+                    // Get a list of courses with V1 assignments.
+                    $courses = $DB->get_records_sql("SELECT tc.id, courseid, ownerid, turnitin_cid, fullname
+                                                     FROM {turnitintool_courses} tc JOIN {course} c
+                                                     ON c.id = tc.courseid");
+
+                    // If we have nothing to migrate, display a message, otherwise display the tool.
+                    if ($courses) {
+                        $output .= html_writer::tag('div', get_string("migrationtool_processexplained", 'turnitintooltwo'), array('id' => 'migrationtool_explained'));
+
+                        // Map V1 setting names to V2 and the corresponding language string.
+                        $v1tov2_settings = array(
+                                array("v1field" => "turnitin_account_id", "v2field" => "accountid", "lang" => "turnitinaccountid"),
+                                array("v1field" => "turnitin_secretkey", "v2field" => "secretkey", "lang" => "turnitinsecretkey"),
+                                array("v1field" => "turnitin_apiurl", "v2field" => "apiurl", "lang" => "turnitinapiurl"),
+                                array("v1field" => "turnitin_usegrademark", "v2field" => "usegrademark", "lang" => "turnitinusegrademark"),
+                                array("v1field" => "turnitin_useerater", "v2field" => "useerater", "lang" => "turnitinuseerater"),
+                                array("v1field" => "turnitin_useanon", "v2field" => "useanon", "lang" => "turnitinuseanon"),
+                                array("v1field" => "turnitin_transmatch", "v2field" => "transmatch", "lang" => "transmatch"),
+                                array("v1field" => "turnitin_userepository", "v2field" => "repositoryoption", "lang" => "migrationtool_userepository"),
+                                array("v1field" => "turnitin_agreement", "v2field" => "agreement", "lang" => "turnitintooltwoagreement"),
+                                array("v1field" => "turnitin_enablepseudo", "v2field" => "enablepseudo", "lang" => "enablepseudo"));
+
+                        // Get a list of V1 and V2 settings.get_records_select
+                        $v1config = $DB->get_records_sql("SELECT name, value FROM {config} WHERE name LIKE '%turnitin%'");
+
+                        $show_setting_differences = 0;
+                        $settings_list = array();
+                        foreach ($v1tov2_settings as $k => $v) {
+                            // Check URL first, then repository, then other settings, as URL check and repository checks are different.
+                            if (isset($v1config[$v["v1field"]])) {
+                                if (($v["v1field"] == "turnitin_apiurl") && (strpos($v1config[$v["v1field"]]->value, $config->$v["v2field"]) === false)) {
+                                   $show_setting_differences = 1;
+                                   $settingslist[] = get_string($v["lang"], 'turnitintooltwo');
+                                }
+                                elseif ($v["v1field"] == "turnitin_userepository") {
+                                    if ((($v1config[$v["v1field"]]->value == 0) && ($config->$v["v2field"] == 1)) || (($v1config[$v["v1field"]]->value == 1) && ($config->$v["v2field"] != 1))) {
+                                        $show_setting_differences = 1;
+                                        $settingslist[] = get_string($v["lang"], 'turnitintooltwo');
+                                    }
+                                }
+                                elseif (($v["v1field"] != "turnitin_apiurl") && ($v1config[$v["v1field"]]->value != $config->$v["v2field"])) {
+                                   $show_setting_differences = 1;
+                                   $settingslist[] = get_string($v["lang"], 'turnitintooltwo');
+                                }
+                            }
+                        }
+
+                        // Output the settings warning header if any settings are different.
+                        if ($show_setting_differences) {
+                           $output .= html_writer::tag('div', get_string("migrationtool_setting_warning", 'turnitintooltwo'), array('id' => 'migrationtool_explained'));
+
+                            // Display the list of setting conflicts.
+                            $output .= html_writer::alist($settingslist, array('class' => 'text-margin'));
+                        }
+
+                        $output .= html_writer::tag('div', get_string("migrationtool_checklisttext", 'turnitintooltwo'), array('class' => 'text-margin'));
+
+                        $table = new html_table();
+
+                        $rows = array();
+                        $cells = array();
+
+                        // Do the table row.
+                        $cells["id"] = new html_table_cell(get_string('migrationtool_checklist', 'turnitintooltwo'));
+                        $checkbox = html_writer::checkbox('check_1', 1, false, '', array("class" => "migration_checkbox"));
+                        $cells["checkbox"] = new html_table_cell($checkbox);
+                        $rows[0] = new html_table_row($cells);
+                        $table->data = $rows;
+
+                        $output .= html_writer::table($table);
+
+                        $output .= html_writer::tag("button", get_string('migrationtool_trial', 'turnitintooltwo'),
+                                        array("id" => "trial-migration-button", "class" => "btn btn-primary migration-button", 'data-courses' => count($courses), "disabled" => "disabled"));
+
+                        $output .= $OUTPUT->box_end(true);
+
+
+                        // Ensure our session data is empty before we begin.
+                        unset($_SESSION["migrationtool"]["csvdata"]);
+
+                        // Trial migration footer.
+                        $output .= $OUTPUT->box_start('hidden_class', 'migration-footer');
+                            $output .= html_writer::tag('div', get_string("migrationtool_contactsupport", 'turnitintooltwo'),
+                                            array('id' => 'begin-migration'));
+                            $output .= html_writer::tag("button", get_string('migrationtool_begin', 'turnitintooltwo'),
+                                            array("id" => "begin-migration-button", "class" => "btn btn-primary migration-button", 'data-courses' => count($courses)));
+                            $output .= html_writer::tag('div', get_string("migrationtool_exportcsv", 'turnitintooltwo'),
+                                            array('id' => 'begin-migration'));
+                            $output .= $OUTPUT->single_button(new moodle_url('/mod/turnitintooltwo/classes/csvexport/export_courses.php'), 
+                                            get_string("migrationtool_exportoutput", 'turnitintooltwo'), "post", array("class" => "exportcsv"));
+                        $output .= $OUTPUT->box_end(true);
+
+                        // Trial migration footer nothing to migrate.
+                        $output .= $OUTPUT->box_start('hidden_class', 'migration-footer-nothing');
+                            $output .= html_writer::tag('div', get_string("migrationtool_allcontainv2", 'turnitintooltwo'),
+                                                array('class' => 'tii_checkagainstnote'));
+                            $output .= html_writer::tag('div', get_string("migrationtool_exportcsv", 'turnitintooltwo'),
+                                            array('id' => 'begin-migration'));
+                            $output .= $OUTPUT->single_button(new moodle_url('/mod/turnitintooltwo/classes/csvexport/export_courses.php'), 
+                                            get_string("migrationtool_exportoutput", 'turnitintooltwo'), "post", array("class" => "exportcsv"));
+                        $output .= $OUTPUT->box_end(true);
+
+                        // Migration complete footer
+                        $output .= $OUTPUT->box_start('hidden_class', 'migrationtool_complete');
+                            $output .= html_writer::tag('div', get_string("migrationtool_complete", 'turnitintooltwo'), array('class' => 'migrationtool_complete_text'));
+                            $output .= html_writer::tag('div', get_string("migrationtool_v1warning", 'turnitintooltwo'), array('class' => 'text-margin'));
+                            $output .= html_writer::tag('div', get_string("migrationtool_exportcsv", 'turnitintooltwo'),
+                                            array('id' => 'begin-migration'));
+                            $output .= $OUTPUT->single_button(new moodle_url('/mod/turnitintooltwo/classes/csvexport/export_courses.php'), 
+                                            get_string("migrationtool_exportoutput", 'turnitintooltwo'), "post", array("class" => "exportcsv"));
+                        $output .= $OUTPUT->box_end(true);
+
+                        //Required or we end up with an open box from below.
+                        $output .= $OUTPUT->box_start();
+                    } else {
+                        $output .= html_writer::tag('div', get_string("migrationtool_nothingtomigrate", 'turnitintooltwo'),
+                                            array('class' => 'tii_checkagainstnote'));
+                    }
+                } else {
+                    $output .= html_writer::tag('div', get_string("migrationtool_maintenancecheck", 'turnitintooltwo'),
+                                            array('class' => 'tii_checkagainstnote'));
+                }
+            } else {
+                $output .= html_writer::tag('div', get_string('migrationtool_oldversion', 'turnitintooltwo', $module->value),
+                                            array('class' => 'tii_checkagainstnote'));
+            }
+        } else {
+            $output .= html_writer::tag('div', get_string('migrationtool_pluginnotfound', 'turnitintooltwo'),
+                                            array('id' => 'full-error'));
+        }
+        $output .= $OUTPUT->box_end(true);
+
+        break;
+
     case "multiple_class_recreation":
         if (!confirm_sesskey()) {
             throw new moodle_exception('invalidsesskey', 'error');

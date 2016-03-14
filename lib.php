@@ -829,7 +829,7 @@ function turnitintooltwo_get_assignments_from_tii($courseid, $returnformat = "js
         $findassignment = $response->getAssignment();
         $assignmentids = $findassignment->getAssignmentIds();
     } catch (Exception $e) {
-        $turnitincomms->handle_exceptions($e, 'getassignmenterror', false);
+        $turnitincomms->handle_exceptions($e, 'restorationgetassignmenterror', false);
     }
 
     $assignment = new TiiAssignment();
@@ -886,7 +886,7 @@ function turnitintooltwo_get_assignments_from_tii($courseid, $returnformat = "js
             }
         }
     } catch (Exception $e) {
-        turnitintooltwo_activitylog(get_string('migrationassignmentgeterror', 'turnitintooltwo').' - Class: '.$courseid, "REQUEST");
+        turnitintooltwo_activitylog(get_string('restorationassignmentgeterror', 'turnitintooltwo').' - Class: '.$courseid, "REQUEST");
     }
 
     return $return;
@@ -936,7 +936,7 @@ function turnitintooltwo_get_courses_from_tii($tiiintegrationids, $coursetitle, 
         $classids = $findclass->getClassIds();
 
     } catch (Exception $e) {
-        turnitintooltwo_activitylog(get_string('migrationcoursegeterror', 'turnitintooltwo'), "REQUEST");
+        turnitintooltwo_activitylog(get_string('restorationcoursegeterror', 'turnitintooltwo'), "REQUEST");
         $classids = array();
     }
 
@@ -1030,7 +1030,7 @@ function turnitintooltwo_get_courses_from_tii($tiiintegrationids, $coursetitle, 
     $return["iTotalRecords"] = $i;
     $return["iTotalDisplayRecords"] = $i;
     $return["sEcho"] = $secho;
-    $return["blockHTML"] = ($i == 0) ? '' : get_string('coursestomigrate', 'mod_turnitintooltwo', $i);
+    $return["blockHTML"] = ($i == 0) ? '' : get_string('coursestorestore', 'mod_turnitintooltwo', $i);
 
     return $return;
 }

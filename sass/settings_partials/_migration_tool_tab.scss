@@ -1,0 +1,40 @@
+/*
+Located at mod/turnitintooltwo/settings_extras.php?cmd=migrationtool
+*/
+
+#migrationtool {
+    height: 600px;
+    overflow: scroll;
+}
+
+.darkgreen {
+    color: #2D8B22;
+}
+
+.red {
+    color: #FF0000;
+}
+
+.text-margin, #migrationtool_explained {
+    margin-bottom: 20px;
+}
+
+.courseheader {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.migrationtool_complete_text {
+    font-size: 25px;
+    color: #2D8B22;
+    margin-bottom: 20px;
+}
+
+.migration-button, #begin-migration {
+    margin-top: 20px;
+}
+
+.exportcsv {
+    margin: 20px 0px 0px 0px !important;
+}
