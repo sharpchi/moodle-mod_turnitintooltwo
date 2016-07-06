@@ -35,6 +35,7 @@ class instructor_message {
      */
     public function send_instructor_message($instructors, $message)
     {
+        return;
         $subject = get_string('receipt_instructor_copy_subject', 'turnitintooltwo');
 
         $eventdata = new stdClass();
